@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Netex.TermbitImage", "Netex.TermbitImage\Netex.TermbitImage.csproj", "{0DE419BF-18C7-43B1-AF37-6473ED3D2763}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0DE419BF-18C7-43B1-AF37-6473ED3D2763}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0DE419BF-18C7-43B1-AF37-6473ED3D2763}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0DE419BF-18C7-43B1-AF37-6473ED3D2763}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0DE419BF-18C7-43B1-AF37-6473ED3D2763}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
