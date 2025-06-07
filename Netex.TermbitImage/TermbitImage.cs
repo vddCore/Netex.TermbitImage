@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text;
 
 public class TermbitImage
 {
@@ -76,7 +77,13 @@ public class TermbitImage
         Cells = newBitmap;
     }
 
-    public void Serialize(BinaryWriter writer)
+    public void WriteToStream(Stream stream)
+    {
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, true);
+        Serialize(writer);
+    }
+
+    private void Serialize(BinaryWriter writer)
     {
         writer.Write(new[] { (byte)'T', (byte)'B', (byte)'T' });
         writer.Write(FormatVersion);
@@ -116,7 +123,7 @@ public class TermbitImage
 
     public static TermbitImage FromStream(Stream stream)
     {
-        var reader = new BinaryReader(stream);
+        var reader = new BinaryReader(stream, Encoding.UTF8, true);
         var magic = reader.ReadBytes(3);
 
         if (!magic.SequenceEqual(new[] { (byte)'T', (byte)'B', (byte)'T' }))
@@ -160,5 +167,11 @@ public class TermbitImage
         
         cellDataStream.Dispose();
         return outImage;
+    }
+
+    public static TermbitImage FromFile(string filePath)
+    {
+        using var fs = File.OpenRead(filePath);
+        return FromStream(fs);
     }
 }
