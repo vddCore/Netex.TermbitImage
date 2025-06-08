@@ -8,7 +8,9 @@ using System.Text;
 
 public class TermbitImage
 {
-    public const byte FormatVersion = 1;
+    private Dictionary<string, string> _metadata = new();
+    
+    public const byte FormatVersion = 2;
 
     public byte Version { get; private set; } = FormatVersion;
     public int Width { get; private set; }
@@ -16,6 +18,8 @@ public class TermbitImage
     public TermbitImageFlags Flags { get; private set; }
 
     public TermbitImageCell[] Cells { get; private set; } = null!;
+    
+    public IReadOnlyDictionary<string, string> Metadata => _metadata;
 
     public bool IsCompressed
     {
@@ -27,7 +31,7 @@ public class TermbitImage
             else Flags &= ~TermbitImageFlags.Compressed;
         }
     }
-
+    
     public TermbitImageCell this[int x, int y]
     {
         get
@@ -77,6 +81,22 @@ public class TermbitImage
         Cells = newBitmap;
     }
 
+    public void AddMetadata(string key, string value)
+    {
+        _metadata[key] = value;
+
+        if (_metadata.Any()) Flags |= TermbitImageFlags.ContainsMetadata;
+        else Flags &= ~TermbitImageFlags.ContainsMetadata;
+    }
+
+    public void RemoveMetadata(string key)
+    {
+        _metadata.Remove(key);
+        
+        if (_metadata.Any()) Flags |= TermbitImageFlags.ContainsMetadata;
+        else Flags &= ~TermbitImageFlags.ContainsMetadata;
+    }
+    
     public void WriteToStream(Stream stream)
     {
         using var writer = new BinaryWriter(stream, Encoding.UTF8, true);
@@ -90,11 +110,19 @@ public class TermbitImage
         writer.Write(Width);
         writer.Write(Height);
         writer.Write((int)Flags);
+        writer.Write(_metadata.Count);
 
         using var ms = new MemoryStream();
         foreach (var cell in Cells)
             ms.Write(cell.ToBytes());
 
+        using var metaWriter = new BinaryWriter(ms, Encoding.UTF8, true);
+        foreach (var (k, v) in _metadata)
+        {
+            metaWriter.Write(k);
+            metaWriter.Write(v);
+        }
+        
         ms.Position = 0;
         var decompressedSize = (int)ms.Length;
         var compressedSize = 0;
@@ -133,6 +161,13 @@ public class TermbitImage
         var width = reader.ReadInt32();
         var height = reader.ReadInt32();
         var flags = (TermbitImageFlags)reader.ReadInt32();
+
+        int metaCount = 0;
+        if (version == 2)
+        {
+            metaCount = reader.ReadInt32();
+        }
+        
         var isCompressed = flags.HasFlag(TermbitImageFlags.Compressed);
         
         var decompressedSize = reader.ReadInt32();
@@ -141,31 +176,34 @@ public class TermbitImage
         outImage.Version = version;
         outImage.Flags = flags;
 
-        Stream cellDataStream;
+        Stream imageDataStream;
         
         if (isCompressed)
         {
             var cellData = reader.ReadBytes(compressedSize);
             using var inStream = new MemoryStream(cellData);
             using var zlib = new ZLibStream(inStream, CompressionMode.Decompress);
-            cellDataStream = new MemoryStream();
-            zlib.CopyTo(cellDataStream);
+            imageDataStream = new MemoryStream();
+            zlib.CopyTo(imageDataStream);
         }
         else
         {
             var cellData = reader.ReadBytes(decompressedSize);
-            cellDataStream = new MemoryStream(cellData);
+            imageDataStream = new MemoryStream(cellData);
         }
 
-        cellDataStream.Position = 0;
+        imageDataStream.Position = 0;
         
         var cellCount = width * height;
         for (var i = 0; i < cellCount; i++)
         {
-            outImage.Cells[i] = TermbitImageCell.FromStream(cellDataStream);
+            outImage.Cells[i] = TermbitImageCell.FromStream(imageDataStream);
         }
+
+        for (var i = 0; i < metaCount; i++) 
+            outImage._metadata[reader.ReadString()] = reader.ReadString();
         
-        cellDataStream.Dispose();
+        imageDataStream.Dispose();
         return outImage;
     }
 

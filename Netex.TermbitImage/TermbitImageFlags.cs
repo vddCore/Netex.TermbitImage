@@ -5,5 +5,6 @@ using System;
 [Flags]
 public enum TermbitImageFlags
 {
-    Compressed = 1 << 0
+    Compressed = 1 << 0,
+    ContainsMetadata = 1 << 1
 }
