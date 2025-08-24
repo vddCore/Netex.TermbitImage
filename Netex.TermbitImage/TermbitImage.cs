@@ -1,6 +1,7 @@
 namespace Netex.TermbitImage;
 
 using System;
+using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -8,7 +9,7 @@ using System.Text;
 
 public class TermbitImage
 {
-    private Dictionary<string, string> _metadata = new();
+    private readonly Dictionary<string, string> _metadata = new();
     
     public const byte FormatVersion = 2;
 
@@ -20,6 +21,8 @@ public class TermbitImage
     public TermbitImageCell[] Cells { get; private set; } = null!;
     
     public IReadOnlyDictionary<string, string> Metadata => _metadata;
+
+    public event EventHandler<TermbitImageCell>? CellUpdated;
 
     public bool IsCompressed
     {
@@ -48,6 +51,7 @@ public class TermbitImage
                 throw new IndexOutOfRangeException("Invalid coordinates.");
 
             Cells[(y * Width) + x] = value;
+            CellUpdated?.Invoke(this, value);
         }
     }
 
@@ -58,6 +62,23 @@ public class TermbitImage
 
         DestructiveResize(Width, Height);
     }
+    
+    public void Fill(TermbitImageCell cell)
+    {
+        for (var i = 0; i < Cells.Length; i++)
+            Cells[i] = cell with { };
+    }
+
+    public void Fill(Color background, Color foreground, char glyph)
+    {
+        Fill(new TermbitImageCell
+        {
+            Background = background,
+            Foreground = foreground,
+            Blink = false,
+            Glyph = glyph
+        });
+    }
 
     public void DestructiveResize(int width, int height)
     {
@@ -65,6 +86,7 @@ public class TermbitImage
         Height = height;
 
         Cells = new TermbitImageCell[Width * Height];
+        Fill(TermbitImageCell.Empty);
     }
 
     public void NonDestructiveResize(int width, int height)
@@ -105,7 +127,7 @@ public class TermbitImage
 
     private void Serialize(BinaryWriter writer)
     {
-        writer.Write(new[] { (byte)'T', (byte)'B', (byte)'T' });
+        writer.Write("TBT"u8.ToArray());
         writer.Write(FormatVersion);
         writer.Write(Width);
         writer.Write(Height);
@@ -154,7 +176,7 @@ public class TermbitImage
         var reader = new BinaryReader(stream, Encoding.UTF8, true);
         var magic = reader.ReadBytes(3);
 
-        if (!magic.SequenceEqual(new[] { (byte)'T', (byte)'B', (byte)'T' }))
+        if (!magic.SequenceEqual("TBT"u8.ToArray()))
             throw new FormatException("Invalid TBT magic.");
         
         var version = reader.ReadByte();
@@ -172,9 +194,12 @@ public class TermbitImage
         
         var decompressedSize = reader.ReadInt32();
         var compressedSize = reader.ReadInt32();
-        var outImage = new TermbitImage(width, height);
-        outImage.Version = version;
-        outImage.Flags = flags;
+        
+        var outImage = new TermbitImage(width, height)
+        {
+            Version = version,
+            Flags = flags
+        };
 
         Stream imageDataStream;
         
@@ -200,9 +225,11 @@ public class TermbitImage
             outImage.Cells[i] = TermbitImageCell.FromStream(imageDataStream);
         }
 
-        for (var i = 0; i < metaCount; i++) 
+        for (var i = 0; i < metaCount; i++)
+        {
             outImage._metadata[reader.ReadString()] = reader.ReadString();
-        
+        }
+
         imageDataStream.Dispose();
         return outImage;
     }
