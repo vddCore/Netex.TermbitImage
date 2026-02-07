@@ -65,8 +65,10 @@ public class TermbitImage
     
     public void Fill(TermbitImageCell cell)
     {
+        var span = Cells.AsSpan();
+        
         for (var i = 0; i < Cells.Length; i++)
-            Cells[i] = cell with { };
+            span[i] = cell with { };
     }
 
     public void Fill(Color background, Color foreground, char glyph)
@@ -91,15 +93,23 @@ public class TermbitImage
 
     public void NonDestructiveResize(int width, int height)
     {
+        var newSize = width * height;
+        var oldSize = Cells.Length;
+    
+        if (Width == width && Height == height)
+            return;
+    
         Width = width;
         Height = height;
-
-        var newBitmap = new TermbitImageCell[Width * Height];
-        Array.Fill(newBitmap, TermbitImageCell.Empty);
-
-        for (var i = 0; i < Cells.Length && i < newBitmap.Length; i++)
-            newBitmap[i] = Cells[i];
-
+    
+        var newBitmap = new TermbitImageCell[newSize];
+    
+        var copyLength = Math.Min(oldSize, newSize);
+        Array.Copy(Cells, newBitmap, copyLength);
+    
+        if (newSize > oldSize && !EqualityComparer<TermbitImageCell>.Default.Equals(TermbitImageCell.Empty, null))
+            Array.Fill(newBitmap, TermbitImageCell.Empty, oldSize, newSize - oldSize);
+    
         Cells = newBitmap;
     }
 
